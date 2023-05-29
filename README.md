@@ -4,7 +4,7 @@
 Daniel Lucrédio  
 
 ## Discente
-Leonardo Nogueira Agnelo - 77801  
+Leonardo Nogueira Agnelo - 779801  
 João Gabriel Gonçalves - 769690  
 Victor Fernandes Dell Elba Gomes - 769839 
 
@@ -33,4 +33,4 @@ ANTLR4 Python Runtime
     $ py main.py "casos-de-teste\1.casos_teste_t1\entrada\30-algoritmo_2-2_apostila_LA_erro_linha_5txt" "saida.txt"
 
     # Corretor Automatico
-    $ java -jar "corretor\Corretor.jar" "py main.py" gcc "temp" "casos-de-teste" "779801" t1
+    $ java -jar "corretor\Corretor.jar" "py main.py" gcc "temp" "casos-de-teste" "779801, 769690, 769839" t1
