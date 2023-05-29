@@ -11,6 +11,8 @@ Victor Fernandes Dell Elba Gomes - 769839
 ### Pré-requisitos
 Certifique-se de ter os seguintes requisitos instalados em seu sistema:
 
+Python 3
+
 Java Development Kit (JDK) - versão 8 ou superior
 
 ANTLR4-Tools
