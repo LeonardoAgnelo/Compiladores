@@ -12,7 +12,9 @@ Victor Fernandes Dell Elba Gomes - 769839
 Certifique-se de ter os seguintes requisitos instalados em seu sistema:
 
 Java Development Kit (JDK) - versão 8 ou superior
+
 ANTLR4-Tools
+
 ANTLR4 Python Runtime
 
 ### COMO EXECUTAR
