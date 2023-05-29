@@ -53,6 +53,8 @@ def main():
             token_type = f"'{token.text}'"
         
         output.write(f"<'{token.text}',{token_type}>\n")
+        
+    output.close()
 
 if __name__ == "__main__":
     try:
