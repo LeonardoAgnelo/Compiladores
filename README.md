@@ -5,7 +5,7 @@ Daniel Lucrédio
 
 ## Discente
 Leonardo Nogueira Agnelo - 77801  
-João Gabriel Gonçalves -  
+João Gabriel Gonçalves - 769690  
 Victor Fernandes Dell Elba Gomes -   
 
 ### COMO EXECUTAR
