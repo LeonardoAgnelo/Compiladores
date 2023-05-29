@@ -11,7 +11,6 @@ class LexerErrorListener(ErrorListener):
     def syntaxError(self, recognizer, offendingSymbol, line, column, msg, e):
         errText = recognizer._input.getText(recognizer._tokenStartCharIndex, recognizer._input.index)
         errText = recognizer.getErrorDisplay(errText)
-        print(len(errText))
         if(len(errText) <= 1):
             self.outfile.write("Linha " + str(line) + ": " + errText + " - simbolo nao identificado\n")
         elif('{' in errText or '}' in errText):
