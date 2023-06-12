@@ -4,9 +4,20 @@
 Daniel Lucrédio  
 
 ## Discente
-Leonardo Nogueira Agnelo - 77801  
+Leonardo Nogueira Agnelo - 779801  
 João Gabriel Gonçalves - 769690  
-Victor Fernandes Dell Elba Gomes -   
+Victor Fernandes Dell Elba Gomes - 769839 
+
+### Pré-requisitos
+Certifique-se de ter os seguintes requisitos instalados em seu sistema:
+
+Python 3
+
+Java Development Kit (JDK) - versão 8 ou superior
+
+ANTLR4-Tools
+
+ANTLR4 Python Runtime
 
 ### COMO EXECUTAR
     # Instale o runtime para python
@@ -15,11 +26,11 @@ Victor Fernandes Dell Elba Gomes -
     # Instale as ferramentas do ANTLR4
     $ pip install antlr4-tools
 
-    # gerar lexer
+    # Gerar Lexer
     $ antlr4 -Dlanguage=Python3 lexerT1.g4 -o "Lexer"
 
-    # Teste do lexer
+    # Teste do Lexer
     $ py main.py "casos-de-teste\1.casos_teste_t1\entrada\30-algoritmo_2-2_apostila_LA_erro_linha_5txt" "saida.txt"
 
-    # Corretor automatico
-    $ java -jar "corretor\Corretor.jar" "py main.py" gcc "temp" "casos-de-teste" "779801" t1
+    # Corretor Automatico
+    $ java -jar "corretor\Corretor.jar" "py main.py" gcc "temp" "casos-de-teste" "779801, 769690, 769839" t1

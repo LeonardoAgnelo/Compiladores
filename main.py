@@ -47,6 +47,7 @@ class ParserErrorListener(ErrorListener):
 
 
 def main():
+    # Obtém o nome do arquivo de entrada e de saída a partir dos argumentos da linha de comando
     input_file = sys.argv[1]
     output_file = sys.argv[2]
 
