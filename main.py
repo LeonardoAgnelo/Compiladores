@@ -42,7 +42,8 @@ class ParserErrorListener(ErrorListener):
         super().__init__()
         self.outfile = outfile
     def syntaxError(self, recognizer, offendingSymbol, line, column, msg, e):
-        self.outfile.write("Erro em algum lugar")
+        self.outfile.write("Linha " + str(line) + ": erro sintatico proximo a " + offendingSymbol.text + '\n')
+        self.outfile.write("Fim da compilacao\n")
         raise Exception()
 
 
