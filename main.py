@@ -1,7 +1,8 @@
 import sys
 import logging
 from antlr4 import *
-from lexer.lexerT1Lexer import lexerT1Lexer
+from Parser.LALexer import LALexer
+from Parser.LAParser import LAParser
 from antlr4.error.ErrorListener import ErrorListener
 
 class LexerErrorListener(ErrorListener):
@@ -34,6 +35,15 @@ class LexerErrorListener(ErrorListener):
         elif('"' in errText):
             self.outfile.write("Linha " + str(line) + ": cadeia literal nao fechada\n")
         raise Exception()
+    
+    
+class ParserErrorListener(ErrorListener):
+    def __init__(self, outfile):
+        super().__init__()
+        self.outfile = outfile
+    def syntaxError(self, recognizer, offendingSymbol, line, column, msg, e):
+        self.outfile.write("Erro em algum lugar")
+        raise Exception()
 
 
 def main():
@@ -43,18 +53,13 @@ def main():
 
     input = FileStream(input_file, encoding='utf-8')
     output = open(output_file, 'w')
-    lexer = lexerT1Lexer(input, output)
+    lexer = LALexer(input, output)
+    tokens = CommonTokenStream(lexer)
+    parser = LAParser(tokens, output)
     lexer.addErrorListener(LexerErrorListener(output))
-
-    # Loop para gerar e processar os tokens
-    while (token := lexer.nextToken()).type is not Token.EOF:
-        token_type = lexer.ruleNames[token.type -1]
-        if (token_type not in str(['IDENT','CADEIA','NUM_INT','NUM_REAL'])):
-            token_type = f"'{token.text}'"
-        
-        output.write(f"<'{token.text}',{token_type}>\n")
-        
-    output.close()
+    parser.addErrorListener(ParserErrorListener(output))
+    
+    parser.programa()   
 
 if __name__ == "__main__":
     try:
