@@ -62,7 +62,7 @@ cmdRetorne: 'retorne' expressao;
 selecao: item_selecao*;
 item_selecao: constantes ':' cmd*;
 constantes: numero_intervalo (',' numero_intervalo)*;
-numero_intervalo: op_unario? parcela_unario | parcela_nao_unario;
+numero_intervalo: op_unario? NUM_INT ('..' op_unario? NUM_INT)?;
 op_unario: '-';
 exp_aritmetica: termo (op1 termo)*;
 termo: fator (op2 fator)*;
