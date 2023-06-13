@@ -1,4 +1,6 @@
 temp
+lexer
+Parser
 saida.txt
 .antlr
 **/__pycache__
