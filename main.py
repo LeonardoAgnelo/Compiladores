@@ -34,6 +34,7 @@ class LexerErrorListener(ErrorListener):
             self.outfile.write("Linha " + str(line) + ": comentario nao fechado\n")
         elif('"' in errText):
             self.outfile.write("Linha " + str(line) + ": cadeia literal nao fechada\n")
+        self.outfile.write("Fim da compilacao\n")
         raise Exception()
     
     
@@ -42,7 +43,10 @@ class ParserErrorListener(ErrorListener):
         super().__init__()
         self.outfile = outfile
     def syntaxError(self, recognizer, offendingSymbol, line, column, msg, e):
-        self.outfile.write("Linha " + str(line) + ": erro sintatico proximo a " + offendingSymbol.text + '\n')
+        ttext = offendingSymbol.text
+        if ttext == "<EOF>":
+            ttext = "EOF"
+        self.outfile.write("Linha " + str(line) + ": erro sintatico proximo a " + ttext + '\n')
         self.outfile.write("Fim da compilacao\n")
         raise Exception()
 
