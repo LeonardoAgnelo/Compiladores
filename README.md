@@ -1,4 +1,4 @@
-# Trabalho 1 de Compiladores - Analisador Léxico
+# Trabalho de Compiladores
 
 ## Docente
 Daniel Lucrédio  
