@@ -4,6 +4,7 @@ from antlr4 import *
 from Parser.LALexer import LALexer
 from Parser.LAParser import LAParser
 from antlr4.error.ErrorListener import ErrorListener
+from Parser.LAVisitor import LAVisitor
 
 class LexerErrorListener(ErrorListener):
     """
@@ -49,6 +50,26 @@ class ParserErrorListener(ErrorListener):
         self.outfile.write("Linha " + str(line) + ": erro sintatico proximo a " + ttext + '\n')
         self.outfile.write("Fim da compilacao\n")
         raise Exception()
+    
+class Visitor(LAVisitor):
+    def __init__(self, outfile):
+        super().__init__()
+        self.identificadores = {}
+        self.outfile = outfile
+
+    def handle(self, tree):
+        self.visit(tree)
+        self.outfile.write("Fim da compilacao\n")
+
+    def visitVariavel(self, ctx:LAParser.VariavelContext):
+        for identificador in ctx.identificador():
+            if identificador.getText() not in self.identificadores:
+                self.identificadores[identificador.getText()] = ctx.tipo().getText()
+            else:
+                self.outfile.write("Linha " + str(identificador.start.line) + ": identificador " + identificador.getText() +" ja declarado anteriormente\n")
+        return self.visitChildren(ctx)
+
+
 
 
 def main():
@@ -61,10 +82,14 @@ def main():
     lexer = LALexer(input, output)
     tokens = CommonTokenStream(lexer)
     parser = LAParser(tokens, output)
+    val = parser.programa()
+    visitor = Visitor(output)
     lexer.addErrorListener(LexerErrorListener(output))
     parser.addErrorListener(ParserErrorListener(output))
+    visitor.handle(val)
+
     
-    parser.programa()   
+       
 
 if __name__ == "__main__":
     try:
