@@ -1,5 +1,6 @@
 import sys
 import logging
+import re
 from antlr4 import *
 from Parser.LALexer import LALexer
 from Parser.LAParser import LAParser
@@ -56,6 +57,7 @@ class Visitor(LAVisitor):
         super().__init__()
         self.identificadores = {}
         self.outfile = outfile
+        self.identificadorparcela = None
 
     def handle(self, tree):
         self.visit(tree)
@@ -67,6 +69,47 @@ class Visitor(LAVisitor):
                 self.identificadores[identificador.getText()] = ctx.tipo().getText()
             else:
                 self.outfile.write("Linha " + str(identificador.start.line) + ": identificador " + identificador.getText() +" ja declarado anteriormente\n")
+        return self.visitChildren(ctx)
+
+    def visitTipo(self, ctx:LAParser.TipoContext):
+        if ctx.tipo_estendido().getText() not in ['inteiro', 'literal', 'real', 'logico']:
+            self.outfile.write("Linha " + str(ctx.tipo_estendido().start.line) + ": tipo " + ctx.tipo_estendido().getText() +" nao declarado\n")
+        return self.visitChildren(ctx)
+
+    def visitIdentificador(self, ctx:LAParser.IdentificadorContext):
+        for ident in ctx.IDENT():
+            if ident.getText() not in self.identificadores:
+                self.outfile.write("Linha " + str(ctx.start.line) + ": identificador " + ident.getText() +" nao declarado\n")
+        return self.visitChildren(ctx)
+
+    def visitParcela_unario(self, ctx:LAParser.Parcela_unarioContext):
+        if self.identificadorparcela is not None:
+            if ctx.NUM_INT() is not None and self.identificadores[self.identificadorparcela.getText()] not in ['inteiro', 'real']:
+                self.outfile.write("Linha " + str(ctx.start.line) + ": atribuicao nao compativel para " + self.identificadorparcela.getText() + "\n")
+            elif ctx.NUM_REAL() is not None and self.identificadores[self.identificadorparcela.getText()] not in ['real','inteiro']:
+                self.outfile.write("Linha " + str(ctx.start.line) + ": atribuicao nao compativel para " + self.identificadorparcela.getText() + "\n")
+            elif ctx.identificador() is not None and self.identificadores[self.identificadorparcela.getText()] not in [self.identificadores[ctx.identificador().getText()], 'logico']:
+                if self.identificadores[ctx.identificador().getText()] in ['inteiro','real'] and self.identificadores[self.identificadorparcela.getText()] not in ['inteiro', 'real']:
+                    self.outfile.write("Linha " + str(ctx.start.line) + ": atribuicao nao compativel para " + self.identificadorparcela.getText() + "\n")
+        return self.visitChildren(ctx)
+
+    def visitParcela_nao_unario(self, ctx:LAParser.Parcela_nao_unarioContext):
+        if self.identificadorparcela is not None:
+            if ctx.CADEIA() is not None and self.identificadores[self.identificadorparcela.getText()] != 'literal':
+                self.outfile.write("Linha " + str(ctx.start.line) + ": atribuicao nao compativel para " + self.identificadorparcela.getText() + "\n")
+            elif ctx.identificador() is not None and self.identificadores[self.identificadorparcela.getText()] not in [self.identificadores[ctx.identificador().getText()], 'logico']:
+                self.outfile.write("Linha " + str(ctx.start.line) + ": atribuicao nao compativel para " + self.identificadorparcela.getText() + "\n")
+        return self.visitChildren(ctx)
+
+    def visitParcela_logica(self, ctx:LAParser.Parcela_logicaContext):
+        if ctx.exp_relacional() is None and self.identificadorparcela is not None:
+            self.outfile.write("Linha " + str(ctx.start.line) + ": atribuicao nao compativel para " + self.identificadorparcela.getText() + "\n")
+        return self.visitChildren(ctx)
+
+    def visitCmdAtribuicao(self, ctx:LAParser.CmdAtribuicaoContext):
+        self.identificadorparcela = ctx.identificador()
+        self.visitChildren(ctx.expressao())
+        self.identificadorparcela = None
         return self.visitChildren(ctx)
 
 
