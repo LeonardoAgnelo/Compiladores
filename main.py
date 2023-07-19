@@ -59,10 +59,28 @@ class Visitor(LAVisitor):
         self.outfile = outfile
         self.identificadorparcela = None
         self.customTipos = {}
+        self.funcoes = {}
 
     def handle(self, tree):
         self.visit(tree)
         self.outfile.write("Fim da compilacao\n")
+
+
+    def visitDeclaracao_global(self, ctx:LAParser.Declaracao_globalContext):
+
+        self.funcoes[ctx.IDENT().getText()] = {}
+        self.funcoes[ctx.IDENT().getText()]["tipo"] = ctx.tipo_estendido().getText()
+        self.visitParametros(ctx.parametros(), ctx.IDENT())
+
+    
+    def visitParametros(self, ctx:LAParser.ParametrosContext, funcaoIdent = None):
+        if funcaoIdent:
+            self.funcoes[funcaoIdent.getText()]["parametros"] ={}
+            for parametro in ctx.parametro():
+                for identificador in parametro.identificador():
+                    self.funcoes[funcaoIdent.getText()]["parametros"][identificador.getText()] = parametro.tipo_estendido().getText()
+        return self.visitChildren(ctx)
+
 
     def visitVariavel(self, ctx:LAParser.VariavelContext, registro = False, registroIdent = None, tipo = False):
         registroCriado = False
@@ -127,7 +145,6 @@ class Visitor(LAVisitor):
         return self.visitChildren(ctx)
 
     def visitParcela_unario(self, ctx:LAParser.Parcela_unarioContext):
-        
         if self.identificadorparcela is not None:
             if "." in self.identificadorparcela:
                 identificador = self.identificadorparcela.split('.')
@@ -145,6 +162,21 @@ class Visitor(LAVisitor):
                         self.outfile.write("Linha " + str(ctx.start.line) + ": atribuicao nao compativel para " + self.identificadorparcela + "\n")
         if ctx.identificador():
             self.findIdentificador(ctx.identificador().getText(), ctx)
+        
+        if ctx.IDENT():
+            parametros = self.funcoes[ctx.IDENT().getText()]["parametros"]
+            if len(parametros) != len(ctx.expressao()):
+                self.outfile.write("Linha " + str(ctx.start.line) + ": incompatibilidade de parametros na chamada de " + str(ctx.IDENT()) + "\n")
+            else:
+                for x, ex in enumerate(ctx.expressao()):
+                    if ex.getText() in self.identificadores:
+                        if self.identificadores[ex.getText()] != parametros[list(parametros)[x]]:
+                            self.outfile.write("Linha " + str(ctx.start.line) + ": incompatibilidade de parametros na chamada de " + str(ctx.IDENT()) + "\n")
+                    else:
+                        print("fuck")
+                        # tratar função dentor de função
+                        # self.funcoes[ctx.IDENT][tipo] tem o tipo qeu a função retorna
+
         return self.visitChildren(ctx)
 
     def visitParcela_nao_unario(self, ctx:LAParser.Parcela_nao_unarioContext):
