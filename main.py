@@ -95,6 +95,11 @@ class Visitor(LAVisitor):
                     self.outfile.write("Linha " + str(ctx.start.line) + ": comando retorne nao permitido nesse escopo\n")
         else:
             return self.visitChildren(ctx)
+        
+    def visitCorpo(self, ctx:LAParser.CorpoContext):
+        for comando in ctx.cmd():
+            self.visitCmd(comando, True)
+        return self.visitChildren(ctx)
 
     def visitVariavel(self, ctx:LAParser.VariavelContext, registro = False, registroIdent = None, tipo = False):
         registroCriado = False
