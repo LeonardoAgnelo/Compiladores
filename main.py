@@ -60,6 +60,7 @@ class Visitor(LAVisitor):
         self.identificadorparcela = None
         self.customTipos = {}
         self.funcoes = {}
+        self.constantes = {}
 
     def handle(self, tree):
         self.visit(tree)
@@ -69,7 +70,13 @@ class Visitor(LAVisitor):
     def visitDeclaracao_global(self, ctx:LAParser.Declaracao_globalContext):
 
         self.funcoes[ctx.IDENT().getText()] = {}
-        self.funcoes[ctx.IDENT().getText()]["tipo"] = ctx.tipo_estendido().getText()
+        if ctx.tipo_estendido():
+            self.funcoes[ctx.IDENT().getText()]["tipo"] = ctx.tipo_estendido().getText()
+        else:
+            self.funcoes[ctx.IDENT().getText()]["tipo"] = "procedimento"
+            if ctx.cmd():
+                for comando in ctx.cmd():
+                    self.visitCmd(comando, True)
         self.visitParametros(ctx.parametros(), ctx.IDENT())
 
     
@@ -81,6 +88,13 @@ class Visitor(LAVisitor):
                     self.funcoes[funcaoIdent.getText()]["parametros"][identificador.getText()] = parametro.tipo_estendido().getText()
         return self.visitChildren(ctx)
 
+    def visitCmd(self, ctx:LAParser.CmdContext, procedimento = False):
+        if procedimento:
+            if ctx.cmdRetorne():
+                if ctx.cmdRetorne().expressao():
+                    self.outfile.write("Linha " + str(ctx.start.line) + ": comando retorne nao permitido nesse escopo\n")
+        else:
+            return self.visitChildren(ctx)
 
     def visitVariavel(self, ctx:LAParser.VariavelContext, registro = False, registroIdent = None, tipo = False):
         registroCriado = False
@@ -94,7 +108,20 @@ class Visitor(LAVisitor):
                     self.identificadores[identificador.getText()]["tipo"] = "registro"
                     self.visitRegistro(ctx.tipo().registro(), identificador.getText())
             if identificador.getText() not in self.identificadores and not (registroCriado or registro or tipo):
-                self.identificadores[identificador.getText()] = ctx.tipo().getText()
+                if '[' in identificador.getText() and ']' in identificador.getText():
+                    identificadorSplit = identificador.getText().split('[')[0]
+                    self.identificadores[identificadorSplit] = {}
+                    dimensao = identificador.getText().split('[')[1].split(']')[0]
+                    if dimensao.isnumeric():
+                        dimensao = int(dimensao)
+                    else:
+                        if dimensao in self.constantes:
+                            if self.constantes[dimensao].isnumeric():
+                                dimensao = int(self.constantes[dimensao])
+                    for i in range(dimensao):
+                        self.identificadores[identificadorSplit][i] = ctx.tipo().getText()
+                else:
+                    self.identificadores[identificador.getText()] = ctx.tipo().getText()
             elif identificador.getText() in self.identificadores and not (registroCriado or registro):
                 self.outfile.write("Linha " + str(identificador.start.line) + ": identificador " + identificador.getText() +" ja declarado anteriormente\n")
             if registro:
@@ -127,6 +154,8 @@ class Visitor(LAVisitor):
     def visitDeclaracao_local(self, ctx:LAParser.Declaracao_localContext):
         if ctx.tipo() and ctx.tipo().registro():
             return self.visitRegistro(ctx.tipo().registro(), ctx.IDENT().getText(), True)
+        if ctx.valor_constante():
+            self.constantes[ctx.IDENT().getText()] = ctx.valor_constante().getText()
         return self.visitChildren(ctx)
 
     def findIdentificador(self, identificador, ctx):
@@ -134,10 +163,19 @@ class Visitor(LAVisitor):
             identificadorsplit = identificador.split('.')
             if identificadorsplit[0] not in self.identificadores:
                 self.outfile.write("Linha " + str(ctx.start.line) + ": identificador " + identificador +" nao declarado\n")
+                return False
             elif identificadorsplit[1] not in self.identificadores[identificadorsplit[0]]:
                 self.outfile.write("Linha " + str(ctx.start.line) + ": identificador " + identificador +" nao declarado\n")
-        elif identificador not in self.identificadores:
+                return False
+        elif "[" in identificador:
+            identificadorsplit = identificador.split('[')[0]
+            if identificadorsplit not in self.identificadores:
+                self.outfile.write("Linha " + str(ctx.start.line) + ": identificador " + identificador +" nao declarado\n")
+                return False
+        elif identificador not in self.identificadores and identificador not in self.constantes:
             self.outfile.write("Linha " + str(ctx.start.line) + ": identificador " + identificador +" nao declarado\n")
+            return False
+        return True
     
     def visitCmdLeia(self, ctx:LAParser.CmdLeiaContext):
         for identificador in ctx.identificador():
@@ -148,10 +186,15 @@ class Visitor(LAVisitor):
         if self.identificadorparcela is not None:
             if "." in self.identificadorparcela:
                 identificador = self.identificadorparcela.split('.')
-                #if ctx.NUM_INT() is not None and self.identificadores[identificador[0]][identificador[1]] not in ['inteiro', 'real']:
-                    #self.outfile.write("Linha " + str(ctx.start.line) + ": atribuicao nao compativel para " + self.identificadorparcela + "\n")
-                #elif ctx.NUM_REAL() is not None and self.identificadores[identificador[0]][identificador[1]] not in ['real','inteiro']:
-                    #self.outfile.write("Linha " + str(ctx.start.line) + ": atribuicao nao compativel para " + self.identificadorparcela + "\n")
+                if ctx.NUM_INT() is not None and self.identificadores[identificador[0]][identificador[1]] not in ['inteiro', 'real']:
+                    self.outfile.write("Linha " + str(ctx.start.line) + ": atribuicao nao compativel para " + self.identificadorparcela + "\n")
+                elif ctx.NUM_REAL() is not None and self.identificadores[identificador[0]][identificador[1]] not in ['real','inteiro']:
+                    self.outfile.write("Linha " + str(ctx.start.line) + ": atribuicao nao compativel para " + self.identificadorparcela + "\n")
+            elif ctx.identificador() and "[" in ctx.identificador().getText():
+                vetor = ctx.identificador().getText().split("[")[0]
+                if self.identificadores[self.identificadorparcela.replace("^", "")] not in [self.identificadores[vetor][0], 'logico']:
+                    if self.identificadores[vetor][0] in ['inteiro','real'] and self.identificadores[self.identificadorparcela.replace("^", "")].replace("^", "") not in ['inteiro', 'real']:
+                        self.outfile.write("Linha " + str(ctx.start.line) + ": atribuicao nao compativel para " + self.identificadorparcela + "\n")
             else:
                 if ctx.NUM_INT() is not None and self.identificadores[self.identificadorparcela.replace("^", "")] not in ['inteiro', 'real']:
                     self.outfile.write("Linha " + str(ctx.start.line) + ": atribuicao nao compativel para " + self.identificadorparcela + "\n")
@@ -172,9 +215,9 @@ class Visitor(LAVisitor):
                     if ex.getText() in self.identificadores:
                         if self.identificadores[ex.getText()] != parametros[list(parametros)[x]]:
                             self.outfile.write("Linha " + str(ctx.start.line) + ": incompatibilidade de parametros na chamada de " + str(ctx.IDENT()) + "\n")
-                    else:
-                        print("fuck")
-                        # tratar função dentor de função
+                    #else:
+                        #print(self.funcoes[ctx.IDENT().getText()]["parametros"]["valor1"])
+                        # tratar função dentro de função
                         # self.funcoes[ctx.IDENT][tipo] tem o tipo qeu a função retorna
 
         return self.visitChildren(ctx)
@@ -184,6 +227,11 @@ class Visitor(LAVisitor):
             if "." in self.identificadorparcela:
                 identificador = self.identificadorparcela.split('.')
                 if ctx.CADEIA() is not None and self.identificadores[identificador[0]][identificador[1]] != 'literal':
+                    self.outfile.write("Linha " + str(ctx.start.line) + ": atribuicao nao compativel para " + self.identificadorparcela + "\n")
+            elif "[" in self.identificadorparcela:
+                identificadorSplit = self.identificadorparcela.split('[')[0]
+                indice = int(self.identificadorparcela.split('[')[1].split(']')[0])
+                if ctx.CADEIA() is not None and self.identificadores[identificadorSplit][indice] != 'literal':
                     self.outfile.write("Linha " + str(ctx.start.line) + ": atribuicao nao compativel para " + self.identificadorparcela + "\n")
             else:
                 if ctx.CADEIA() is not None and self.identificadores[self.identificadorparcela.replace("^", "")] != 'literal':
@@ -200,13 +248,14 @@ class Visitor(LAVisitor):
         return self.visitChildren(ctx)
 
     def visitCmdAtribuicao(self, ctx:LAParser.CmdAtribuicaoContext):
+        if ctx.identificador():
+            if not self.findIdentificador(ctx.identificador().getText(), ctx):
+                return
         self.identificadorparcela = ctx.identificador().getText()
         if ctx.POINTER():
             self.identificadorparcela = "^" + ctx.identificador().getText()
         self.visitChildren(ctx.expressao())
         self.identificadorparcela = None
-        if ctx.identificador():
-            self.findIdentificador(ctx.identificador().getText(), ctx)
         return self.visitChildren(ctx)
 
 
