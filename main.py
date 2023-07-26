@@ -219,10 +219,6 @@ class Visitor(LAVisitor):
                     if ex.getText() in self.identificadores:
                         if self.identificadores[ex.getText()] != parametros[list(parametros)[x]]:
                             self.outfile.write("Linha " + str(ctx.start.line) + ": incompatibilidade de parametros na chamada de " + str(ctx.IDENT()) + "\n")
-                    #else:
-                        #print(self.funcoes[ctx.IDENT().getText()]["parametros"]["valor1"])
-                        # tratar função dentro de função
-                        # self.funcoes[ctx.IDENT][tipo] tem o tipo qeu a função retorna
 
         return self.visitChildren(ctx)
 
