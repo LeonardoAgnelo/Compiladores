@@ -103,7 +103,6 @@ class Visitor(LAVisitor):
 
     def visitVariavel(self, ctx:LAParser.VariavelContext, registro = False, registroIdent = None, tipo = False):
         registroCriado = False
-        
         for identificador in ctx.identificador():
             if ctx.tipo().registro() and not tipo:
                 #Cria dict para escopo/registro
@@ -112,7 +111,7 @@ class Visitor(LAVisitor):
                     self.identificadores[identificador.getText()] = {}
                     self.identificadores[identificador.getText()]["tipo"] = "registro"
                     self.visitRegistro(ctx.tipo().registro(), identificador.getText())
-            if identificador.getText() not in self.identificadores and not (registroCriado or registro or tipo):
+            if identificador.getText() not in self.identificadores and identificador.getText() not in self.funcoes and not (registroCriado or registro or tipo):
                 if '[' in identificador.getText() and ']' in identificador.getText():
                     identificadorSplit = identificador.getText().split('[')[0]
                     self.identificadores[identificadorSplit] = {}
@@ -127,7 +126,7 @@ class Visitor(LAVisitor):
                         self.identificadores[identificadorSplit][i] = ctx.tipo().getText()
                 else:
                     self.identificadores[identificador.getText()] = ctx.tipo().getText()
-            elif identificador.getText() in self.identificadores and not (registroCriado or registro):
+            elif (identificador.getText() in self.identificadores or identificador.getText() in self.funcoes) and not (registroCriado or registro):
                 self.outfile.write("Linha " + str(identificador.start.line) + ": identificador " + identificador.getText() +" ja declarado anteriormente\n")
             if registro:
                 self.identificadores[registroIdent][identificador.getText()] = ctx.tipo().getText()
