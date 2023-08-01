@@ -258,7 +258,61 @@ class Visitor(LAVisitor):
         self.identificadorparcela = None
         return self.visitChildren(ctx)
 
+class Generator(LAVisitor):
+    def __init__(self, visitor: Visitor):
+        self.visitor = visitor
 
+    def handle(self, tree):
+        self.visitor.handle(tree)
+        self.visit(tree)
+    
+    def visitPrograma(self, ctx: LAParser.ProgramaContext):
+        self.visitor.outfile.write("#include <stdio.h>\n")
+        self.visitor.outfile.write("#include <stdlib.h>\n")
+        self.visitor.outfile.write("\n\n")
+        if ctx.declaracoes():
+            self.visitDeclaracoes(ctx.declaracoes())
+            self.visitor.outfile.write("\n\n")
+        self.visitor.outfile.write("int main() {\n")
+        self.visitCorpo(ctx.corpo())
+        self.visitor.outfile.write("\treturn 0;\n")
+        self.visitor.outfile.write("}\n")
+    
+    def visitCorpo(self, ctx:LAParser.CorpoContext):
+        return self.visitChildren(ctx)
+
+    def visitDeclaracao_local(self, ctx:LAParser.Declaracao_localContext):
+        return self.visitChildren(ctx)
+
+    def visitVariavel(self, ctx:LAParser.VariavelContext):
+        for identificador in ctx.identificador():
+            self.visitor.outfile.write("    " + self.converteTipo(ctx.tipo().getText()) + " " + identificador.getText() + ";\n")
+        return self.visitChildren(ctx)
+
+    def visitCmdLeia(self, ctx:LAParser.CmdLeiaContext):
+        if self.visitor.identificadores[identificador.getText()] != "literal":
+            self.visitor.outfile.write("scanf(\"")
+            for identificador in ctx.identificador():
+                tipo = self.converteTipoLeitura(self.visitor.identificadores[identificador.getText()])
+                self.visitor.outfile.write(tipo + "\")")
+        else:
+            for identificador in ctx.identificador():
+                self.visitor.outfile.write("gets(" + identificador.getText() + ");")
+        return self.visitChildren(ctx)
+
+    def converteTipo(self, tipoLA):
+        if tipoLA == "inteiro":
+            tipoC = "int"
+        elif tipoLA == "real":
+            tipoC = "float"
+        return tipoC
+    
+    def converteTipoLeitura(self, tipoLA):
+        if tipoLA == "inteiro":
+            tipoC = "%d"
+        elif tipoLA == "real":
+            tipoC = "%f"
+        return tipoC
 
 
 def main():
@@ -273,9 +327,11 @@ def main():
     parser = LAParser(tokens, output)
     val = parser.programa()
     visitor = Visitor(output)
+    generator = Generator(visitor)
     lexer.addErrorListener(LexerErrorListener(output))
     parser.addErrorListener(ParserErrorListener(output))
-    visitor.handle(val)
+    generator.handle(val)
+    output.close()
 
     
        
