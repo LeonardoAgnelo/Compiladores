@@ -282,6 +282,8 @@ class Generator(LAVisitor):
         return self.visitChildren(ctx)
 
     def visitDeclaracao_local(self, ctx:LAParser.Declaracao_localContext):
+        if ctx.valor_constante():
+            self.visitor.outfile.write("#define " + ctx.IDENT().getText() + " " + ctx.valor_constante().getText())
         return self.visitChildren(ctx)
 
     def visitDeclaracao_global(self, ctx:LAParser.Declaracao_globalContext):
@@ -329,7 +331,10 @@ class Generator(LAVisitor):
         return self.visitChildren(ctx)
     
     def visitCmdAtribuicao(self, ctx:LAParser.CmdAtribuicaoContext):
-        self.visitor.outfile.write("    " + ctx.identificador().getText() + " = " + ctx.expressao().getText() + ";\n")
+        if ctx.POINTER():
+            self.visitor.outfile.write("    *" + ctx.identificador().getText() + " = " + ctx.expressao().getText() + ";\n")
+        else:
+            self.visitor.outfile.write("    " + ctx.identificador().getText() + " = " + ctx.expressao().getText() + ";\n")
         return self.visitChildren(ctx)
     
     def visitCmdSe(self, ctx:LAParser.CmdSeContext):
@@ -342,9 +347,40 @@ class Generator(LAVisitor):
             for cmd in ctx.cmd2:
                 self.visitCmd(cmd)
             self.visitor.outfile.write("    }\n")
+    
+    def visitCmdCaso(self, ctx:LAParser.CmdCasoContext):
+        self.visitor.outfile.write("    switch(" + ctx.exp_aritmetica().getText() + ") {\n")
+        for selecao in ctx.selecao().item_selecao():
+            self.visitConstantes(selecao.constantes())
+            for cmd in selecao.cmd():
+                self.visitor.outfile.write("        ")
+                self.visitCmd(cmd)
+            self.visitor.outfile.write("        break;\n")
+        if ctx.cmd():
+            self.visitor.outfile.write("    default:\n")
+            for cmd in ctx.cmd():
+                self.visitor.outfile.write("        ")
+                self.visitCmd(cmd)
+        self.visitor.outfile.write("    }\n")
+    
+    def visitConstantes(self, ctx: LAParser.ConstantesContext):
+        for intervalo in ctx.numero_intervalo():
+            comeco = int(intervalo.NUM_INT(0).getText())
+            if intervalo.op_unario1:
+                comeco = -comeco
+            if intervalo.op_unario2:
+                fim = -int(intervalo.NUM_INT(1).getText())
+            elif intervalo.NUM_INT(1):
+                fim = int(intervalo.NUM_INT(1).getText())
+            else:
+                fim = comeco
+            for i in range(comeco, fim + 1):
+                self.visitor.outfile.write(f"       case {i}:\n")
+        return None
 
     def convertExpressao(self, expressao):
-        expressao = expressao.replace("=", "==")
+        if not ("<=" in expressao or ">=" in expressao):
+            expressao = expressao.replace("=", "==")
         expressao = expressao.replace("e", "&&")
         expressao = expressao.replace("ou", "||")
         expressao = expressao.replace("nao", "!")
@@ -372,6 +408,25 @@ class Generator(LAVisitor):
                         if self.visitor.funcoes[identFunc]["parametros"][variavel] == "real":
                             return "%f"
             return "%d"
+        
+    def visitCmdPara(self, ctx:LAParser.CmdParaContext):
+        ident = ctx.IDENT().getText()
+        self.visitor.outfile.write("    for(" + ident + "=" + self.convertExpressao(ctx.exp_aritmetica1.getText()) + "; " + ident + "<=" + self.convertExpressao(ctx.exp_aritmetica2.getText()) + "; " + ident + "++) {\n   ")
+        for cmd in ctx.cmd():
+            self.visitCmd(cmd)
+        self.visitor.outfile.write("    }\n")
+
+    def visitCmdEnquanto(self, ctx:LAParser.CmdEnquantoContext):
+        self.visitor.outfile.write("   while(" + self.convertExpressao(ctx.expressao().getText()) + ") {\n    ")
+        for cmd in ctx.cmd():
+            self.visitCmd(cmd)
+        self.visitor.outfile.write("    }\n")
+
+    def visitCmdFaca(self, ctx:LAParser.CmdFacaContext):
+        self.visitor.outfile.write("    do {\n  ")
+        for cmd in ctx.cmd():
+            self.visitCmd(cmd)
+        self.visitor.outfile.write("    } while (" + self.convertExpressao(ctx.expressao().getText()) + ");\n")
     
     def visitCmdEscreva(self, ctx:LAParser.CmdEscrevaContext, identFunc = None):
         self.visitor.outfile.write("    printf(")
