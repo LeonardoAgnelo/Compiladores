@@ -200,7 +200,7 @@ class Visitor(LAVisitor):
                     if self.identificadores[vetor][0] in ['inteiro','real'] and self.identificadores[self.identificadorparcela.replace("^", "")].replace("^", "") not in ['inteiro', 'real']:
                         self.outfile.write("Linha " + str(ctx.start.line) + ": atribuicao nao compativel para " + self.identificadorparcela + "\n")
             else:
-                if ctx.NUM_INT() is not None and self.identificadores[self.identificadorparcela.replace("^", "")] not in ['inteiro', 'real']:
+                if ctx.NUM_INT() is not None and self.identificadores[self.identificadorparcela.replace("^", "")] not in ['inteiro', 'real', '^inteiro', '^real']:
                     self.outfile.write("Linha " + str(ctx.start.line) + ": atribuicao nao compativel para " + self.identificadorparcela + "\n")
                 elif ctx.NUM_REAL() is not None and self.identificadores[self.identificadorparcela.replace("^", "")] not in ['real','inteiro']:
                     self.outfile.write("Linha " + str(ctx.start.line) + ": atribuicao nao compativel para " + self.identificadorparcela + "\n")
@@ -303,7 +303,6 @@ class Generator(LAVisitor):
         for command in ctx.cmd():
                 self.visitCmd(command, ctx.IDENT().getText())
         self.visitor.outfile.write("} \n")
-        #return self.visitChildren(ctx)
 
     def visitVariavel(self, ctx:LAParser.VariavelContext):
         for identificador in ctx.identificador():
@@ -329,6 +328,51 @@ class Generator(LAVisitor):
                 self.visitor.outfile.write("    gets(" + identificador.getText() + ");\n")
         return self.visitChildren(ctx)
     
+    def visitCmdAtribuicao(self, ctx:LAParser.CmdAtribuicaoContext):
+        self.visitor.outfile.write("    " + ctx.identificador().getText() + " = " + ctx.expressao().getText() + ";\n")
+        return self.visitChildren(ctx)
+    
+    def visitCmdSe(self, ctx:LAParser.CmdSeContext):
+        self.visitor.outfile.write("    if(" + self.convertExpressao(ctx.expressao().getText()) + ") {\n   ")
+        for cmd in ctx.cmd1:
+            self.visitCmd(cmd)
+        self.visitor.outfile.write("    }\n")
+        if "senao" in ctx.getText():
+            self.visitor.outfile.write("    else {\n    ")
+            for cmd in ctx.cmd2:
+                self.visitCmd(cmd)
+            self.visitor.outfile.write("    }\n")
+
+    def convertExpressao(self, expressao):
+        expressao = expressao.replace("=", "==")
+        expressao = expressao.replace("e", "&&")
+        expressao = expressao.replace("ou", "||")
+        expressao = expressao.replace("nao", "!")
+        expressao = expressao.replace("<>", "!=")
+        return expressao
+
+    def evalExpressao(self, expressao, identFunc = None):
+        opArit = ['+', '-', '/', '*', '%']
+        opRelLog = ['>', '<', '<=', '>=', '<>', '=', 'e', 'ou', 'nao']
+        if any(ext in expressao for ext in opRelLog):
+            return "%d"
+        if any(ext in expressao for ext in opArit):
+            expressao = expressao.replace('+', ' ')
+            expressao = expressao.replace('-', ' ')
+            expressao = expressao.replace('*', ' ')
+            expressao = expressao.replace('/', ' ')
+            expressao = expressao.replace('%', ' ')
+            variaveis = expressao.split(' ')
+            for variavel in variaveis:
+                if variavel in self.visitor.identificadores:
+                    if self.visitor.identificadores[variavel] == "real":
+                        return "%f"
+                if identFunc:
+                    if variavel in self.visitor.funcoes[identFunc]["parametros"]:
+                        if self.visitor.funcoes[identFunc]["parametros"][variavel] == "real":
+                            return "%f"
+            return "%d"
+    
     def visitCmdEscreva(self, ctx:LAParser.CmdEscrevaContext, identFunc = None):
         self.visitor.outfile.write("    printf(")
         hasStringFirst = False
@@ -338,6 +382,12 @@ class Generator(LAVisitor):
                 if expressao.getText() in self.visitor.identificadores:
                     tipo = self.converteTipoLeitura(self.visitor.identificadores[expressao.getText()])
                     self.visitor.outfile.write("\"" + tipo + "\", " + expressao.getText() + ");\n")
+                else:
+                    if "\"" in expressao.getText():
+                        self.visitor.outfile.write(expressao.getText() + ");\n")
+                    else:
+                        tipo = self.evalExpressao(expressao.getText(), identFunc)
+                        self.visitor.outfile.write("\"" + tipo + "\", " + expressao.getText() + ");\n")
         else:
             for expressao in ctx.expressao():
                 if "\"" in expressao.getText():
@@ -367,6 +417,8 @@ class Generator(LAVisitor):
             tipoC = "float"
         elif tipoLA == "literal":
             tipoC = "char"
+        elif tipoLA == "^inteiro":
+            tipoC = "int*"
         return tipoC
     
     def converteTipoLeitura(self, tipoLA):
