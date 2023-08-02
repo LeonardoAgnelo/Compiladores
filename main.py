@@ -64,6 +64,7 @@ class Visitor(LAVisitor):
 
     def handle(self, tree):
         self.visit(tree)
+        #self.outfile.write("Fim da compilacao\n")
 
 
     def visitDeclaracao_global(self, ctx:LAParser.Declaracao_globalContext):
@@ -192,6 +193,10 @@ class Visitor(LAVisitor):
                 if ctx.NUM_INT() is not None and self.identificadores[identificador[0]][identificador[1]] not in ['inteiro', 'real']:
                     self.outfile.write("Linha " + str(ctx.start.line) + ": atribuicao nao compativel para " + self.identificadorparcela + "\n")
                 elif ctx.NUM_REAL() is not None and self.identificadores[identificador[0]][identificador[1]] not in ['real','inteiro']:
+                    self.outfile.write("Linha " + str(ctx.start.line) + ": atribuicao nao compativel para " + self.identificadorparcela + "\n")
+            elif "[" in self.identificadorparcela:
+                vetor = self.identificadorparcela.split("[")[0]
+                if ctx.NUM_INT() is not None and self.identificadores[vetor][0] not in ['inteiro', 'real']:
                     self.outfile.write("Linha " + str(ctx.start.line) + ": atribuicao nao compativel para " + self.identificadorparcela + "\n")
             elif ctx.identificador() and "[" in ctx.identificador().getText():
                 vetor = ctx.identificador().getText().split("[")[0]
@@ -526,8 +531,9 @@ class Generator(LAVisitor):
                                 else:
                                     self.visitor.outfile.write("\"" + tipo + "\", " + expressao.getText() + ");\n")
                     if "(" in expressao.getText():
-                        print(ctx.expressao().termo_logico().fator_logico().parcela_logica().exp_relacional().exp_aritmetica().termo().fator().parcela().parcela_unario().getText())
-                        self.visitCmdChamada(ctx.expressao().termo_logico().fator_logico().parcela_logica().exp_relacional().exp_aritmetica().termo().fator().parcela().parcela_unario())
+                        nomefunc = expressao.getText().split("(")[0]
+                        tipo = self.converteTipoLeitura(self.visitor.funcoes[nomefunc]["tipo"])
+                        self.visitor.outfile.write("\"" + tipo + "\", " + expressao.getText() + ");\n")
 
 
         return self.visitChildren(ctx)
