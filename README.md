@@ -33,4 +33,4 @@ ANTLR4 Python Runtime
     $ py main.py "casos-de-teste\5.casos_teste_t5\1.entrada\18.procedimento_impressao.alg" "saida.txt"
 
     # Corretor Automatico
-    $ java -jar "corretor\Corretor.jar" "py main.py" gcc "temp" "casos-de-teste" "779801, 769690, 769839" t4
+    $ java -jar "corretor\Corretor.jar" "py main.py" gcc "temp" "casos-de-teste" "779801, 769690, 769839" t5
