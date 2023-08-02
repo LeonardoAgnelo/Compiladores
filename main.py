@@ -64,7 +64,6 @@ class Visitor(LAVisitor):
 
     def handle(self, tree):
         self.visit(tree)
-        #self.outfile.write("Fim da compilacao\n")
 
 
     def visitDeclaracao_global(self, ctx:LAParser.Declaracao_globalContext):
@@ -282,6 +281,8 @@ class Generator(LAVisitor):
         return self.visitChildren(ctx)
 
     def visitDeclaracao_local(self, ctx:LAParser.Declaracao_localContext):
+        if ctx.tipo() and ctx.tipo().registro():
+            return self.visitRegistro(ctx.tipo().registro(), ctx.IDENT().getText(), True)
         if ctx.valor_constante():
             self.visitor.outfile.write("#define " + ctx.IDENT().getText() + " " + ctx.valor_constante().getText())
         return self.visitChildren(ctx)
@@ -291,14 +292,17 @@ class Generator(LAVisitor):
             self.visitor.outfile.write(f"void {ctx.IDENT().getText()} (")
             parametros = self.visitor.funcoes[ctx.IDENT().getText()]["parametros"]
         elif ctx.start.text == "funcao":
-            tipo = self.visitor.funcoes[ctx.IDENT().getText()]["tipo"]
+            tipo = self.converteTipo(self.visitor.funcoes[ctx.IDENT().getText()]["tipo"])
             self.visitor.outfile.write(f"{tipo} {ctx.IDENT().getText()} (")
             parametros = self.visitor.funcoes[ctx.IDENT().getText()]["parametros"]
 
         for i, param in enumerate(parametros):
             if i > 0:
                 self.outfile.write(" , ")
-            self.visitor.outfile.write(f"{self.converteTipo(parametros[param])} {param}")
+            if parametros[param] == "literal":
+                self.visitor.outfile.write(f"{self.converteTipo(parametros[param])}* {param}")
+            else:
+                self.visitor.outfile.write(f"{self.converteTipo(parametros[param])} {param}")
         self.visitor.outfile.write(") {\n")
         for declaration in ctx.declaracao_local():
                 self.visitDeclaracao_local(declaration)
@@ -310,15 +314,43 @@ class Generator(LAVisitor):
         for identificador in ctx.identificador():
             if ctx.tipo().getText() == "literal":
                 self.visitor.outfile.write("    " + self.converteTipo(ctx.tipo().getText()) + " " + identificador.getText() + "[80];\n")
+            elif ctx.tipo().registro():
+                self.visitor.outfile.write("    struct {\n  ")
+                self.visitRegistro(ctx.tipo().registro(), identificador.getText())
             else:
                 self.visitor.outfile.write("    " + self.converteTipo(ctx.tipo().getText()) + " " + identificador.getText() + ";\n")
         return self.visitChildren(ctx)
+    
+    def visitRegistro(self, ctx:LAParser.RegistroContext, identificador = None, tipo = False):
+        if identificador and not tipo:
+            for variavel in ctx.variavel():
+                self.visitVariavel(variavel)
+            self.visitor.outfile.write("    } " + identificador + ";\n")
+        if tipo:
+            self.visitor.outfile.write("    typedef struct {\n  ")
+            for variavel in ctx.variavel():
+                self.visitVariavel(variavel)
+            self.visitor.outfile.write("    } " + identificador + ";\n")
 
     def visitCmd(self, ctx:LAParser.CmdContext, identFunc = None):
         if ctx.cmdEscreva():
             self.visitCmdEscreva(ctx.cmdEscreva(), identFunc)
         else:
             return self.visitChildren(ctx)
+        
+    def visitCmdRetorne(self, ctx:LAParser.CmdRetorneContext):
+        self.visitor.outfile.write("    return " + self.convertExpressao(ctx.expressao().getText()) + ";\n")
+        return self.visitChildren(ctx)
+        
+    def visitCmdChamada(self, ctx:LAParser.CmdChamadaContext):
+        self.visitor.outfile.write("    " + ctx.IDENT().getText() + "(")
+        i = 0
+        for expressao in ctx.expressao():
+            if i > 0:
+                self.visitor.outfile.write(",")
+            self.visitor.outfile.write(self.convertExpressao(expressao.getText()))
+        self.visitor.outfile.write(");\n")
+        return self.visitChildren(ctx)
 
     def visitCmdLeia(self, ctx:LAParser.CmdLeiaContext):
         for identificador in ctx.identificador():
@@ -334,7 +366,18 @@ class Generator(LAVisitor):
         if ctx.POINTER():
             self.visitor.outfile.write("    *" + ctx.identificador().getText() + " = " + ctx.expressao().getText() + ";\n")
         else:
-            self.visitor.outfile.write("    " + ctx.identificador().getText() + " = " + ctx.expressao().getText() + ";\n")
+            if "." in ctx.identificador().getText():
+                reg = ctx.identificador().getText().split(".")[0]
+                var = ctx.identificador().getText().split(".")[1]
+                if reg in self.visitor.identificadores:
+                            if var in self.visitor.identificadores[reg]:
+                                tipo = self.converteTipo(self.visitor.identificadores[reg][var])
+                                if tipo == "char":
+                                    self.visitor.outfile.write("    strcpy(" + ctx.identificador().getText() + "," + ctx.expressao().getText() + ");\n")
+                                else:
+                                    self.visitor.outfile.write("    " + ctx.identificador().getText() + " = " + ctx.expressao().getText() + ";\n")
+            else:
+                self.visitor.outfile.write("    " + ctx.identificador().getText() + " = " + ctx.expressao().getText() + ";\n")
         return self.visitChildren(ctx)
     
     def visitCmdSe(self, ctx:LAParser.CmdSeContext):
@@ -381,8 +424,8 @@ class Generator(LAVisitor):
     def convertExpressao(self, expressao):
         if not ("<=" in expressao or ">=" in expressao):
             expressao = expressao.replace("=", "==")
-        expressao = expressao.replace("e", "&&")
-        expressao = expressao.replace("ou", "||")
+        expressao = expressao.replace(" e ", "&&")
+        expressao = expressao.replace(" ou ", "||")
         expressao = expressao.replace("nao", "!")
         expressao = expressao.replace("<>", "!=")
         return expressao
@@ -440,11 +483,20 @@ class Generator(LAVisitor):
                 else:
                     if "\"" in expressao.getText():
                         self.visitor.outfile.write(expressao.getText() + ");\n")
+                    elif "(" in expressao.getText():
+                        nomefunc = expressao.getText().split("(")[0]
+                        tipo = self.converteTipoLeitura(self.visitor.funcoes[nomefunc]["tipo"])
+                        #self.visitCmdChamada(expressao.termo_logico()[0].fator_logico()[0].parcela_logica().exp_relacional().exp_aritmetica()[0].termo()[0].fator()[0].parcela()[0].parcela_unario())
+                        self.visitor.outfile.write("\"" + tipo + "\", " + expressao.getText() + ");\n")
                     else:
                         tipo = self.evalExpressao(expressao.getText(), identFunc)
                         self.visitor.outfile.write("\"" + tipo + "\", " + expressao.getText() + ");\n")
         else:
             for expressao in ctx.expressao():
+                if hasStringFirst and notStringFirst:
+                    self.visitor.outfile.write("    printf(")
+                    hasStringFirst = False
+                    notStringFirst = False
                 if "\"" in expressao.getText():
                     hasStringFirst = True
                     if not notStringFirst:
@@ -463,6 +515,21 @@ class Generator(LAVisitor):
                         if expressao.getText() in self.visitor.funcoes[identFunc]["parametros"]:
                             tipo = self.converteTipoLeitura(self.visitor.funcoes[identFunc]["parametros"][expressao.getText()])
                             self.visitor.outfile.write("\"" + tipo + "\", " + expressao.getText() + ");\n")
+                    if "." in expressao.getText():
+                        reg = expressao.getText().split(".")[0]
+                        var = expressao.getText().split(".")[1]
+                        if reg in self.visitor.identificadores:
+                            if var in self.visitor.identificadores[reg]:
+                                tipo = self.converteTipoLeitura(self.visitor.identificadores[reg][var])
+                                if hasStringFirst:
+                                    self.visitor.outfile.write(tipo + "\", " + expressao.getText() + ");\n")
+                                else:
+                                    self.visitor.outfile.write("\"" + tipo + "\", " + expressao.getText() + ");\n")
+                    if "(" in expressao.getText():
+                        print(ctx.expressao().termo_logico().fator_logico().parcela_logica().exp_relacional().exp_aritmetica().termo().fator().parcela().parcela_unario().getText())
+                        self.visitCmdChamada(ctx.expressao().termo_logico().fator_logico().parcela_logica().exp_relacional().exp_aritmetica().termo().fator().parcela().parcela_unario())
+
+
         return self.visitChildren(ctx)
 
     def converteTipo(self, tipoLA):
@@ -474,6 +541,8 @@ class Generator(LAVisitor):
             tipoC = "char"
         elif tipoLA == "^inteiro":
             tipoC = "int*"
+        elif tipoLA in self.visitor.customTipos:
+            tipoC = tipoLA
         return tipoC
     
     def converteTipoLeitura(self, tipoLA):
